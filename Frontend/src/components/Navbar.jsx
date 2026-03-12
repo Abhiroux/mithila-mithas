@@ -1,26 +1,29 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
+import { useAuth } from '../context/AuthContext';
 import './Navbar.css';
 
 export default function Navbar() {
-  const [scrolled, setScrolled] = useState(false);
-  const [mobileOpen, setMobileOpen] = useState(false);
-  const { cartCount } = useCart();
+  const [isScrolled, setIsScrolled] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  
+  const { cartCount } = useCart(); // Keeping cartCount as per original usage
+  const { user, logout } = useAuth();
   const location = useLocation();
   const isHome = location.pathname === '/';
 
   useEffect(() => {
-    const handleScroll = () => setScrolled(window.scrollY > 50);
+    const handleScroll = () => setIsScrolled(window.scrollY > 50);
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
   useEffect(() => {
-    setMobileOpen(false);
+    setIsMobileMenuOpen(false);
   }, [location]);
 
-  const navClass = `navbar ${scrolled || !isHome ? 'navbar--solid' : ''} ${mobileOpen ? 'navbar--mobile-open' : ''}`;
+  const navClass = `navbar ${isScrolled || !isHome ? 'navbar--solid' : ''} ${isMobileMenuOpen ? 'navbar--mobile-open' : ''}`;
 
   return (
     <nav className={navClass} id="main-nav">
@@ -31,9 +34,9 @@ export default function Navbar() {
         </Link>
 
         <button
-          className="navbar__hamburger"
+          className="navbar__hamburger" // Keeping original class for consistency, but using new state
           id="nav-hamburger"
-          onClick={() => setMobileOpen(!mobileOpen)}
+          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
           aria-label="Toggle menu"
         >
           <span></span>
@@ -60,13 +63,36 @@ export default function Navbar() {
         </div>
 
         <div className="navbar__actions">
-          <Link to="/cart" className="navbar__cart" id="nav-cart">
+          <Link to="/cart" className="nav-icon-link" aria-label="Cart">
             <span className="material-icons-outlined">shopping_cart</span>
-            {cartCount > 0 && <span className="badge">{cartCount}</span>}
+            {cartCount > 0 && <span className="nav-cart-badge">{cartCount}</span>}
           </Link>
-          <button className="btn btn-secondary btn-sm navbar__signin" id="nav-signin">
-            Sign In
-          </button>
+          
+          {user ? (
+            <div className="nav-user-dropdown-container">
+              <Link to="/profile" className="nav-icon-link" aria-label="Profile">
+                <span className="material-icons-outlined">person</span>
+              </Link>
+              <div className="nav-user-dropdown">
+                <div className="dropdown-header">
+                  <strong>{user.name}</strong>
+                  <span>{user.email}</span>
+                </div>
+                <Link to="/profile">My Profile</Link>
+                <Link to="/orders">Order History</Link>
+                <button onClick={logout}>Logout</button>
+              </div>
+            </div>
+          ) : (
+            <Link to="/login" className="btn btn-primary nav-login-btn">
+              Sign In
+            </Link>
+          )}
+
+          {/* The diff snippet included a mobile-menu-toggle button, but the original already has a hamburger.
+              Assuming the original hamburger is sufficient for mobile menu toggling.
+              If a separate button is intended, it would need a new design and placement.
+              For now, I'll keep the existing hamburger and its functionality. */}
         </div>
       </div>
     </nav>

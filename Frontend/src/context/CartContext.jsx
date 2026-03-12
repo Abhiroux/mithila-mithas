@@ -73,7 +73,7 @@ export function CartProvider({ children }) {
   const subtotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const deliveryFee = subtotal >= 500 ? 0 : 49;
   const gst = Math.round(subtotal * 0.05 * 100) / 100;
-  const total = Math.round((subtotal + deliveryFee + gst) * 100) / 100;
+  const total = subtotal + deliveryFee + gst;
 
   return (
     <CartContext.Provider

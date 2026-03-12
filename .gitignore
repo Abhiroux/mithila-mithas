@@ -2,6 +2,7 @@
 # Dependencies
 # ===========================
 node_modules/
+Dev Docs/
 .pnp/
 .pnp.js
 

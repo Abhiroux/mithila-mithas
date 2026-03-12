@@ -43,6 +43,86 @@
   font-weight: 700;
   color: var(--gold);
   letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+
+/* User Dropdown */
+.nav-user-dropdown-container {
+  position: relative;
+}
+
+.nav-user-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: var(--space-sm);
+  background: var(--white);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xl);
+  border: 1px solid var(--gray-100);
+  width: 200px;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(10px);
+  transition: all var(--transition-fast);
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-xs);
+  z-index: 100;
+}
+
+.nav-user-dropdown-container:hover .nav-user-dropdown {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+.nav-user-dropdown .dropdown-header {
+  padding: var(--space-md);
+  border-bottom: 1px solid var(--gray-100);
+  margin-bottom: var(--space-xs);
+}
+
+.nav-user-dropdown .dropdown-header strong {
+  display: block;
+  font-size: 0.95rem;
+  color: var(--charcoal);
+  margin-bottom: 2px;
+}
+
+.nav-user-dropdown .dropdown-header span {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--gray-400);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.nav-user-dropdown a,
+.nav-user-dropdown button {
+  padding: var(--space-sm) var(--space-md);
+  text-decoration: none;
+  color: var(--gray-600);
+  font-size: 0.9rem;
+  font-family: inherit;
+  font-weight: 500;
+  background: none;
+  border: none;
+  text-align: left;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.nav-user-dropdown a:hover,
+.nav-user-dropdown button:hover {
+  background: var(--gray-50);
+  color: var(--maroon);
+}
+
+/* Auth Buttons */
+.nav-login-btn {
+  padding: 8px 20px;
 }
 
 /* Links */
@@ -174,5 +254,26 @@
 
   .navbar__signin {
     display: none;
+  }
+
+  .navbar__actions .mobile-only {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    margin-top: var(--space-md);
+    padding-top: var(--space-md);
+    border-top: 1px solid var(--gray-200);
+  }
+
+  .mobile-logout-btn {
+    text-align: center;
+    color: var(--error);
+    font-weight: 600;
+    margin-top: var(--space-sm);
+    padding: var(--space-sm);
+    background: rgba(217, 64, 64, 0.05);
+    border-radius: var(--radius-md);
+    border: none;
+    cursor: pointer;
   }
 }

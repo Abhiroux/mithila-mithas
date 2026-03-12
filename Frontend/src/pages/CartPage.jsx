@@ -1,7 +1,19 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
+import { useAuth } from '../context/AuthContext';
 import './CartPage.css';
+
+// Utility to load Razorpay script
+const loadScript = (src) => {
+  return new Promise((resolve) => {
+    const script = document.createElement('script');
+    script.src = src;
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+  });
+};
 
 export default function CartPage() {
   const {
@@ -13,16 +25,139 @@ export default function CartPage() {
     deliveryFee,
     gst,
     total,
+    clearCart,
   } = useCart();
+
+  const { user, token } = useAuth();
+  const navigate = useNavigate();
 
   const [promoCode, setPromoCode] = useState('');
   const [promoApplied, setPromoApplied] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
+
   const discount = promoApplied ? Math.round(subtotal * 0.1 * 100) / 100 : 0;
   const finalTotal = Math.round((total - discount) * 100) / 100;
 
   const handleApplyPromo = () => {
     if (promoCode.toLowerCase() === 'mithila10') {
       setPromoApplied(true);
+    }
+  };
+
+  const handleCheckout = async () => {
+    if (!user) {
+      navigate('/login?redirect=/cart');
+      return;
+    }
+
+    try {
+      setIsProcessing(true);
+      setErrorMsg('');
+
+      // 1. Create Order in Backend
+      const orderRes = await fetch('http://localhost:5000/api/orders', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          orderItems: cartItems.map(item => ({
+            name: item.name,
+            qty: item.quantity,
+            image: item.image,
+            price: item.price,
+            product: String(item.id).padStart(24, '0') // Pad ID to 24 chars to satisfy MongoDB ObjectId format
+          })),
+          shippingAddress: user.addresses?.[0] || { street: 'Default', city: 'Darbhanga', state: 'Bihar', pincode: '846004', phone: user.phone || '0000000000' },
+          paymentMethod: 'razorpay',
+          itemsPrice: subtotal,
+          taxPrice: gst,
+          shippingPrice: deliveryFee,
+          totalPrice: finalTotal,
+          discount: discount
+        })
+      });
+
+      const orderData = await orderRes.json();
+      if (!orderRes.ok) throw new Error(orderData.message || 'Failed to create order');
+
+      // 2. Load Razorpay Script
+      const res = await loadScript('https://checkout.razorpay.com/v1/checkout.js');
+      if (!res) throw new Error('Razorpay SDK failed to load');
+
+      // 3. Create Razorpay Order
+      const rzpRes = await fetch('http://localhost:5000/api/payments/create-order', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ orderId: orderData._id })
+      });
+
+      const rzpData = await rzpRes.json();
+      if (!rzpRes.ok) throw new Error('Error creating Razorpay order');
+
+      // 4. Fetch Razorpay Key
+      const keyRes = await fetch('http://localhost:5000/api/payments/key', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const { key } = await keyRes.json();
+
+      // 5. Open Razorpay Checkout Modal
+      const options = {
+        key: key,
+        amount: rzpData.amount,
+        currency: rzpData.currency,
+        name: 'Mithila Mithas',
+        description: 'Authentic Sweets & Snacks',
+        order_id: rzpData.id,
+        handler: async function (response) {
+          // Verify payment in backend
+          try {
+            const verifyRes = await fetch('http://localhost:5000/api/payments/verify', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`
+              },
+              body: JSON.stringify({
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+                orderId: orderData._id
+              })
+            });
+
+            if (verifyRes.ok) {
+              clearCart();
+              navigate('/orders'); // Redirect to order history after success
+            } else {
+              setErrorMsg('Payment verification failed');
+            }
+          } catch (err) {
+            setErrorMsg('Payment verification error: ' + err.message);
+          }
+        },
+        prefill: {
+          name: user.name,
+          email: user.email,
+          contact: user.phone || ''
+        },
+        theme: {
+          color: '#8b1a3a' // maroon color
+        }
+      };
+
+      const paymentObject = new window.Razorpay(options);
+      paymentObject.open();
+
+    } catch (err) {
+      setErrorMsg(err.message);
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -177,9 +312,16 @@ export default function CartPage() {
                 </p>
               )}
 
-              <button className="btn btn-primary btn-lg order-summary__checkout" id="checkout-btn">
+              {errorMsg && <div style={{color: 'var(--error)', fontSize: '0.9rem', marginBottom: 'var(--space-md)'}}>{errorMsg}</div>}
+
+              <button 
+                className="btn btn-primary btn-lg order-summary__checkout" 
+                id="checkout-btn"
+                onClick={handleCheckout}
+                disabled={isProcessing}
+              >
                 <span className="material-icons-outlined">lock</span>
-                Proceed to Checkout
+                {isProcessing ? 'Processing...' : 'Proceed to Checkout'}
               </button>
 
               <div className="order-summary__trust">

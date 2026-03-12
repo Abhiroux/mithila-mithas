@@ -1,0 +1,213 @@
+import crypto from 'crypto';
+import User from '../models/User.js';
+import generateToken from '../utils/generateToken.js';
+import sendEmail from '../utils/sendEmail.js';
+
+// @desc    Register a new user
+// @route   POST /api/auth/register
+// @access  Public
+export const registerUser = async (req, res, next) => {
+  try {
+    const { name, email, password, phone } = req.body;
+
+    const userExists = await User.findOne({ email });
+
+    if (userExists) {
+      res.status(400);
+      throw new Error('User already exists');
+    }
+
+    // Generate 6-digit OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otpHash = crypto.createHash('sha256').update(otp).digest('hex');
+
+    const user = await User.create({
+      name,
+      email,
+      password,
+      phone,
+      otp: otpHash,
+      otpExpire: Date.now() + 10 * 60 * 1000, // 10 minutes
+    });
+
+    if (user) {
+      try {
+        await sendEmail({
+          email: user.email,
+          subject: 'Mithila Mithas - Verify your email',
+          message: `Your OTP for email verification is ${otp}. It is valid for 10 minutes.`,
+          html: `<h2>Welcome to Mithila Mithas!</h2><p>Your OTP for email verification is: <strong style="font-size: 24px;">${otp}</strong></p><p>It is valid for 10 minutes.</p>`,
+        });
+
+        res.status(201).json({
+          success: true,
+          message: 'OTP sent to email',
+          email: user.email,
+        });
+      } catch (error) {
+        await User.findByIdAndDelete(user._id);
+        res.status(500);
+        throw new Error('Email could not be sent. Please check your SMTP configuration.');
+      }
+    } else {
+      res.status(400);
+      throw new Error('Invalid user data');
+    }
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Verify OTP
+// @route   POST /api/auth/verify-otp
+// @access  Public
+export const verifyOTP = async (req, res, next) => {
+  try {
+    const { email, otp } = req.body;
+
+    const user = await User.findOne({ email }).select('+otp +otpExpire');
+
+    if (!user) {
+      res.status(404);
+      throw new Error('User not found');
+    }
+
+    if (user.isVerified) {
+      res.status(400);
+      throw new Error('User already verified');
+    }
+
+    const otpHash = crypto.createHash('sha256').update(otp).digest('hex');
+
+    if (user.otp !== otpHash || user.otpExpire < Date.now()) {
+      res.status(400);
+      throw new Error('Invalid or expired OTP');
+    }
+
+    user.isVerified = true;
+    user.otp = undefined;
+    user.otpExpire = undefined;
+    await user.save();
+
+    res.json({
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      token: generateToken(user._id),
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Auth user & get token
+// @route   POST /api/auth/login
+// @access  Public
+export const loginUser = async (req, res, next) => {
+  try {
+    const { email, password } = req.body;
+
+    const user = await User.findOne({ email }).select('+password');
+
+    if (user && (await user.matchPassword(password))) {
+      if (!user.isVerified) {
+        // Generate new 6-digit OTP
+        const otp = Math.floor(100000 + Math.random() * 900000).toString();
+        const otpHash = crypto.createHash('sha256').update(otp).digest('hex');
+
+        user.otp = otpHash;
+        user.otpExpire = Date.now() + 10 * 60 * 1000; // 10 minutes
+        await user.save();
+
+        try {
+          await sendEmail({
+            email: user.email,
+            subject: 'Mithila Mithas - Verify your email',
+            message: `Your OTP for email verification is ${otp}. It is valid for 10 minutes.`,
+            html: `<h2>Welcome back!</h2><p>Your new OTP for email verification is: <strong style="font-size: 24px;">${otp}</strong></p><p>It is valid for 10 minutes.</p>`,
+          });
+        } catch (error) {
+          console.error('OTP Resend Error:', error);
+        }
+
+        res.status(401);
+        throw new Error('Please verify your email using OTP first');
+      }
+
+      res.json({
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        token: generateToken(user._id),
+      });
+    } else {
+      res.status(401);
+      throw new Error('Invalid email or password');
+    }
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Get user profile
+// @route   GET /api/auth/profile
+// @access  Private
+export const getUserProfile = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user._id);
+
+    if (user) {
+      res.json({
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        role: user.role,
+        addresses: user.addresses,
+        wishlist: user.wishlist,
+      });
+    } else {
+      res.status(404);
+      throw new Error('User not found');
+    }
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Update user profile
+// @route   PUT /api/auth/profile
+// @access  Private
+export const updateUserProfile = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user._id);
+
+    if (user) {
+      user.name = req.body.name || user.name;
+      user.email = req.body.email || user.email;
+      user.phone = req.body.phone || user.phone;
+      
+      if (req.body.password) {
+        user.password = req.body.password;
+      }
+
+      const updatedUser = await user.save();
+
+      res.json({
+        _id: updatedUser._id,
+        name: updatedUser.name,
+        email: updatedUser.email,
+        phone: updatedUser.phone,
+        role: updatedUser.role,
+        token: generateToken(updatedUser._id),
+      });
+    } else {
+      res.status(404);
+      throw new Error('User not found');
+    }
+  } catch (error) {
+    next(error);
+  }
+};
