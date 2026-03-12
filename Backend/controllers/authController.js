@@ -89,12 +89,18 @@ export const verifyOTP = async (req, res, next) => {
     user.otpExpire = undefined;
     await user.save();
 
+    res.cookie('token', generateToken(user._id), {
+      httpOnly: true,
+      secure: process.env.NODE_ENV !== 'development',
+      sameSite: 'strict',
+      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+    });
+
     res.json({
       _id: user._id,
       name: user.name,
       email: user.email,
       role: user.role,
-      token: generateToken(user._id),
     });
   } catch (error) {
     next(error);
@@ -108,9 +114,19 @@ export const loginUser = async (req, res, next) => {
   try {
     const { email, password } = req.body;
 
-    const user = await User.findOne({ email }).select('+password');
+    const user = await User.findOne({ email }).select('+password +loginAttempts +lockUntil');
 
-    if (user && (await user.matchPassword(password))) {
+    if (!user) {
+      res.status(401);
+      throw new Error('Invalid email or password');
+    }
+
+    if (user.lockUntil && user.lockUntil > Date.now()) {
+      res.status(401);
+      throw new Error('Account locked. Try again later.');
+    }
+
+    if (await user.matchPassword(password)) {
       if (!user.isVerified) {
         // Generate new 6-digit OTP
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
@@ -135,14 +151,30 @@ export const loginUser = async (req, res, next) => {
         throw new Error('Please verify your email using OTP first');
       }
 
+      user.loginAttempts = 0;
+      user.lockUntil = undefined;
+      await user.save();
+
+      res.cookie('token', generateToken(user._id), {
+        httpOnly: true,
+        secure: process.env.NODE_ENV !== 'development',
+        sameSite: 'strict',
+        maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+      });
+
       res.json({
         _id: user._id,
         name: user.name,
         email: user.email,
         role: user.role,
-        token: generateToken(user._id),
       });
     } else {
+      user.loginAttempts += 1;
+      if (user.loginAttempts >= 5) {
+        user.lockUntil = Date.now() + 30 * 60 * 1000; // Lock for 30 minutes
+      }
+      await user.save();
+
       res.status(401);
       throw new Error('Invalid email or password');
     }
@@ -210,4 +242,15 @@ export const updateUserProfile = async (req, res, next) => {
   } catch (error) {
     next(error);
   }
+};
+
+// @desc    Logout user & clear cookie
+// @route   POST /api/auth/logout
+// @access  Private
+export const logoutUser = (req, res) => {
+  res.cookie('token', '', {
+    httpOnly: true,
+    expires: new Date(0),
+  });
+  res.json({ message: 'Logged out successfully' });
 };

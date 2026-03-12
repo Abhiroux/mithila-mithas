@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import './ProfilePage.css'; // Reusing profile layout
 
 export default function OrderHistoryPage() {
-  const { user, token, logout } = useAuth();
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -19,9 +19,7 @@ export default function OrderHistoryPage() {
     const fetchOrders = async () => {
       try {
         const res = await fetch('http://localhost:5000/api/orders/myorders', {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
+          credentials: 'include'
         });
         
         const data = await res.json();
@@ -36,7 +34,7 @@ export default function OrderHistoryPage() {
     };
 
     fetchOrders();
-  }, [user, token, navigate]);
+  }, [user, navigate]);
 
   const handleLogout = () => {
     logout();

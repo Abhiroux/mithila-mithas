@@ -28,7 +28,7 @@ export default function CartPage() {
     clearCart,
   } = useCart();
 
-  const { user, token } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
 
   const [promoCode, setPromoCode] = useState('');
@@ -59,9 +59,9 @@ export default function CartPage() {
       const orderRes = await fetch('http://localhost:5000/api/orders', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
+          'Content-Type': 'application/json'
         },
+        credentials: 'include',
         body: JSON.stringify({
           orderItems: cartItems.map(item => ({
             name: item.name,
@@ -91,9 +91,9 @@ export default function CartPage() {
       const rzpRes = await fetch('http://localhost:5000/api/payments/create-order', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
+          'Content-Type': 'application/json'
         },
+        credentials: 'include',
         body: JSON.stringify({ orderId: orderData._id })
       });
 
@@ -102,7 +102,7 @@ export default function CartPage() {
 
       // 4. Fetch Razorpay Key
       const keyRes = await fetch('http://localhost:5000/api/payments/key', {
-        headers: { Authorization: `Bearer ${token}` }
+        credentials: 'include'
       });
       const { key } = await keyRes.json();
 
@@ -120,9 +120,9 @@ export default function CartPage() {
             const verifyRes = await fetch('http://localhost:5000/api/payments/verify', {
               method: 'POST',
               headers: {
-                'Content-Type': 'application/json',
-                Authorization: `Bearer ${token}`
+                'Content-Type': 'application/json'
               },
+              credentials: 'include',
               body: JSON.stringify({
                 razorpay_order_id: response.razorpay_order_id,
                 razorpay_payment_id: response.razorpay_payment_id,

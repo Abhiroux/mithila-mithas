@@ -10,15 +10,32 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check local storage for user/token on initial load
+    // Optimistically set user from local storage while verifying session with backend
     const storedUser = localStorage.getItem('mithilaUser');
-    const storedToken = localStorage.getItem('mithilaToken');
-    
-    if (storedUser && storedToken) {
+    if (storedUser) {
       setUser(JSON.parse(storedUser));
-      setToken(storedToken);
     }
-    setLoading(false);
+
+    const verifySession = async () => {
+      try {
+        const res = await fetch('http://localhost:5000/api/auth/profile', {
+          credentials: 'include' // Send HTTP-only cookie
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setUser(data);
+          localStorage.setItem('mithilaUser', JSON.stringify(data));
+        } else {
+          setUser(null);
+          localStorage.removeItem('mithilaUser');
+        }
+      } catch (error) {
+        console.error('Session verification error:', error);
+      }
+      setLoading(false);
+    };
+
+    verifySession();
   }, []);
 
   const login = async (email, password) => {
@@ -26,6 +43,7 @@ export const AuthProvider = ({ children }) => {
       const res = await fetch('http://localhost:5000/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ email, password }),
       });
       
@@ -35,7 +53,7 @@ export const AuthProvider = ({ children }) => {
       setUser(data);
       setToken(data.token);
       localStorage.setItem('mithilaUser', JSON.stringify(data));
-      localStorage.setItem('mithilaToken', data.token);
+      // token relies on HTTPOnly cookie securely processed by browser automatically
       return { success: true };
     } catch (error) {
       return { success: false, error: error.message };
@@ -65,6 +83,7 @@ export const AuthProvider = ({ children }) => {
       const res = await fetch('http://localhost:5000/api/auth/verify-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ email, otp }),
       });
       
@@ -74,18 +93,25 @@ export const AuthProvider = ({ children }) => {
       setUser(data);
       setToken(data.token);
       localStorage.setItem('mithilaUser', JSON.stringify(data));
-      localStorage.setItem('mithilaToken', data.token);
+      // token is securely in cookie
       return { success: true };
     } catch (error) {
       return { success: false, error: error.message };
     }
   };
 
-  const logout = () => {
+  const logout = async () => {
+    try {
+      await fetch('http://localhost:5000/api/auth/logout', { 
+        method: 'POST',
+        credentials: 'include' 
+      });
+    } catch (error) {
+      console.error('Logout error', error);
+    }
     setUser(null);
     setToken(null);
     localStorage.removeItem('mithilaUser');
-    localStorage.removeItem('mithilaToken');
   };
 
   const updateProfile = async (updates) => {
@@ -93,9 +119,9 @@ export const AuthProvider = ({ children }) => {
       const res = await fetch('http://localhost:5000/api/auth/profile', {
         method: 'PUT',
         headers: { 
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}` 
+          'Content-Type': 'application/json'
         },
+        credentials: 'include',
         body: JSON.stringify(updates),
       });
       
@@ -105,7 +131,6 @@ export const AuthProvider = ({ children }) => {
       setUser(data);
       setToken(data.token);
       localStorage.setItem('mithilaUser', JSON.stringify(data));
-      localStorage.setItem('mithilaToken', data.token);
       return { success: true };
     } catch (error) {
       return { success: false, error: error.message };
