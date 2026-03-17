@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { useCart } from '../context/CartContext';
+import useCartStore from '../store/useCartStore';
 import { useAuth } from '../context/AuthContext';
 import './Navbar.css';
 
@@ -8,7 +8,8 @@ export default function Navbar() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   
-  const { cartCount } = useCart(); // Keeping cartCount as per original usage
+  const { getTotals } = useCartStore();
+  const { cartCount } = getTotals();
   const { user, logout } = useAuth();
   const location = useLocation();
   const isHome = location.pathname === '/';

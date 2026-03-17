@@ -183,6 +183,18 @@
   transition: color var(--transition-fast);
 }
 
+.nav-icon-link {
+  color: rgba(255, 255, 255, 0.8);
+  display: flex;
+  align-items: center;
+  position: relative;
+  transition: color var(--transition-fast);
+}
+
+.nav-icon-link:hover {
+  color: var(--gold);
+}
+
 .navbar__cart:hover {
   color: var(--gold);
 }

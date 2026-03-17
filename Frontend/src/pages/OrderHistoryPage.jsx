@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import './ProfilePage.css'; // Reusing profile layout
 
@@ -56,14 +56,18 @@ export default function OrderHistoryPage() {
             <p>{user.email}</p>
           </div>
           <nav className="profile-nav">
-            <a href="/profile">
+            <Link to="/profile">
               <span className="material-icons-outlined">person</span>
               My Profile
-            </a>
-            <a href="/orders" className="active">
+            </Link>
+            <Link to="/profile">
+              <span className="material-icons-outlined">home</span>
+              My Addresses
+            </Link>
+            <Link to="/orders" className="active">
               <span className="material-icons-outlined">shopping_bag</span>
               Order History
-            </a>
+            </Link>
             <button onClick={handleLogout} className="profile-nav__logout">
               <span className="material-icons-outlined">logout</span>
               Logout
@@ -92,40 +96,43 @@ export default function OrderHistoryPage() {
               </div>
             ) : (
               <div className="orders-list">
-                <table className="orders-table">
-                  <thead>
-                    <tr>
-                      <th>ID</th>
-                      <th>DATE</th>
-                      <th>TOTAL</th>
-                      <th>PAID</th>
-                      <th>STATUS</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {orders.map((order) => (
-                      <tr key={order._id}>
-                        <td>{order._id.substring(0, 10)}...</td>
-                        <td>{new Date(order.createdAt).toLocaleDateString()}</td>
-                        <td>₹{order.totalPrice.toFixed(2)}</td>
-                        <td>
-                          {order.isPaid ? (
-                            <span className="badge badge-success">
-                              {new Date(order.paidAt).toLocaleDateString()}
-                            </span>
-                          ) : (
-                            <span className="badge badge-danger">Not Paid</span>
-                          )}
-                        </td>
-                        <td>
+                {orders.map((order) => (
+                  <div key={order._id} className="order-card" style={{ border: '1px solid var(--border-color)', borderRadius: '8px', marginBottom: '16px', padding: '16px', backgroundColor: 'var(--white)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', paddingBottom: '12px', marginBottom: '12px' }}>
+                      <div>
+                        <strong>Order #{order._id.substring(0, 8).toUpperCase()}</strong>
+                        <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                           Placed on {new Date(order.createdAt).toLocaleDateString()}
+                        </div>
+                      </div>
+                      <div style={{ textAlign: 'right' }}>
+                        <strong>₹{order.totalPrice.toFixed(2)}</strong>
+                        <div style={{ marginTop: '4px' }}>
                           <span className={`badge badge-${order.orderStatus === 'delivered' ? 'success' : 'warning'}`}>
                             {order.orderStatus.toUpperCase()}
                           </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="order-items" style={{ marginBottom: '12px' }}>
+                      <strong style={{ fontSize: '0.9rem', color: 'var(--text-dark)' }}>Items Wrapped:</strong>
+                      <ul style={{ listStyleType: 'none', padding: 0, margin: '8px 0', fontSize: '0.9rem' }}>
+                        {order.orderItems.map((item, idx) => (
+                          <li key={idx} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: idx !== order.orderItems.length - 1 ? '1px dashed var(--border-color)' : 'none' }}>
+                            <span>{item.qty}x {item.name}</span>
+                            <span>₹{(item.price * item.qty).toFixed(2)}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+
+                    <div className="order-shipping" style={{ fontSize: '0.85rem', color: 'var(--gray-600)', backgroundColor: 'var(--cream-light)', padding: '10px', borderLeft: '3px solid var(--primary-color)', borderRadius: '4px' }}>
+                       <strong style={{ display: 'block', marginBottom: '4px', color: 'var(--text-dark)' }}>🚚 Shipped to:</strong> 
+                       {order.shippingAddress.street}, {order.shippingAddress.city}, {order.shippingAddress.state} - {order.shippingAddress.pincode}
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </div>

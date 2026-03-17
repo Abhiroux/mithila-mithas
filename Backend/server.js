@@ -10,6 +10,7 @@ import authRoutes from './routes/authRoutes.js';
 import productRoutes from './routes/productRoutes.js';
 import orderRoutes from './routes/orderRoutes.js';
 import paymentRoutes from './routes/paymentRoutes.js';
+import cartRoutes from './routes/cartRoutes.js';
 
 // Load env vars
 dotenv.config();
@@ -48,6 +49,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/payments', paymentRoutes);
+app.use('/api/cart', cartRoutes);
 
 // Error Middleware
 app.use(notFound);

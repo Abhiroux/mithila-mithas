@@ -254,3 +254,162 @@ export const logoutUser = (req, res) => {
   });
   res.json({ message: 'Logged out successfully' });
 };
+
+// @desc    Add user address
+// @route   POST /api/auth/addresses
+// @access  Private
+export const addAddress = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user._id);
+
+    if (user) {
+      const { _id, name, label, street, city, state, pincode, phone, isDefault } = req.body;
+      
+      const addressData = {
+        name,
+        label,
+        street,
+        city,
+        state,
+        pincode,
+        phone,
+        isDefault: isDefault || false
+      };
+
+      if (addressData.isDefault) {
+        user.addresses = user.addresses.map((addr) => {
+          addr.isDefault = false;
+          return addr;
+        });
+      }
+
+      if (_id) {
+         const existingAddress = user.addresses.id(_id);
+         if (existingAddress) {
+             existingAddress.set(addressData);
+         } else {
+             res.status(404);
+             throw new Error('Address not found');
+         }
+      } else {
+         if (user.addresses.length === 0) {
+           addressData.isDefault = true;
+         }
+         user.addresses.push(addressData);
+      }
+
+      const updatedUser = await user.save();
+      res.status(_id ? 200 : 201).json(updatedUser.addresses);
+    } else {
+      res.status(404);
+      throw new Error('User not found');
+    }
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Get user addresses
+// @route   GET /api/auth/addresses
+// @access  Private
+export const getAddresses = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user._id);
+
+    if (user) {
+      res.json(user.addresses);
+    } else {
+      res.status(404);
+      throw new Error('User not found');
+    }
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Forgot Password - Send OTP
+// @route   POST /api/auth/forgot-password
+// @access  Public
+export const forgotPassword = async (req, res, next) => {
+  try {
+    const { email } = req.body;
+    const user = await User.findOne({ email });
+
+    if (!user) {
+      res.status(404);
+      throw new Error('User not found with this email');
+    }
+
+    // Generate 6-digit OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otpHash = crypto.createHash('sha256').update(otp).digest('hex');
+
+    // Reuse the existing OTP fields
+    user.otp = otpHash;
+    user.otpExpire = Date.now() + 10 * 60 * 1000; // 10 minutes
+    await user.save();
+
+    try {
+      await sendEmail({
+        email: user.email,
+        subject: 'Mithila Mithas - Password Reset OTP',
+        message: `Your OTP for password reset is ${otp}. It is valid for 10 minutes.`,
+        html: `<h2>Password Reset Request</h2><p>Your OTP to reset your password is: <strong style="font-size: 24px;">${otp}</strong></p><p>It is valid for 10 minutes. If you did not request this, please ignore this email.</p>`,
+      });
+
+      res.status(200).json({
+        success: true,
+        message: 'OTP sent to email',
+      });
+    } catch (error) {
+       user.otp = undefined;
+       user.otpExpire = undefined;
+       await user.save();
+       res.status(500);
+       throw new Error('Email could not be sent. Please check your SMTP configuration.');
+    }
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Reset Password
+// @route   POST /api/auth/reset-password
+// @access  Public
+export const resetPassword = async (req, res, next) => {
+  try {
+    const { email, otp, newPassword } = req.body;
+
+    const user = await User.findOne({ email }).select('+otp +otpExpire +password');
+
+    if (!user) {
+      res.status(404);
+      throw new Error('User not found');
+    }
+
+    const otpHash = crypto.createHash('sha256').update(otp).digest('hex');
+
+    if (user.otp !== otpHash || user.otpExpire < Date.now()) {
+      res.status(400);
+      throw new Error('Invalid or expired OTP');
+    }
+
+    // Passwords are automatically hashed via the Mongoose pre-save hook
+    user.password = newPassword;
+    user.otp = undefined;
+    user.otpExpire = undefined;
+    
+    // Unlock account automatically on successful password reset
+    user.loginAttempts = 0;
+    user.lockUntil = undefined;
+    
+    await user.save();
+
+    res.json({
+      success: true,
+      message: 'Password reset successfully. You can now log in.',
+    });
+  } catch (error) {
+    next(error);
+  }
+};

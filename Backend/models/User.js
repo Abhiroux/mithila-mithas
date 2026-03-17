@@ -32,11 +32,13 @@ const userSchema = mongoose.Schema(
     },
     addresses: [
       {
+        name: String,
         label: String,
         street: String,
         city: String,
         state: String,
         pincode: String,
+        phone: String,
         isDefault: { type: Boolean, default: false },
       },
     ],

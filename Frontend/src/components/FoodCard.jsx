@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { useCart } from '../context/CartContext';
+import useCartStore from '../store/useCartStore';
 import './FoodCard.css';
 
 export default function FoodCard({ item }) {
-  const { addToCart } = useCart();
+  const { addToCart } = useCartStore();
   const [added, setAdded] = useState(false);
   const [liked, setLiked] = useState(false);
 

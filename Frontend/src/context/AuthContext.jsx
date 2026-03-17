@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react';
+import useCartStore from '../store/useCartStore';
 
 const AuthContext = createContext();
 
@@ -112,6 +113,7 @@ export const AuthProvider = ({ children }) => {
     setUser(null);
     setToken(null);
     localStorage.removeItem('mithilaUser');
+    useCartStore.getState().clearCart();
   };
 
   const updateProfile = async (updates) => {

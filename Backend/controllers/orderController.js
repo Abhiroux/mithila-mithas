@@ -1,5 +1,8 @@
 import Order from '../models/Order.js';
 
+import Product from '../models/Product.js';
+import Cart from '../models/Cart.js';
+
 // @desc    Create new order
 // @route   POST /api/orders
 // @access  Private
@@ -9,32 +12,71 @@ export const addOrderItems = async (req, res, next) => {
       orderItems,
       shippingAddress,
       paymentMethod,
-      itemsPrice,
-      taxPrice,
-      shippingPrice,
-      totalPrice,
-      discount,
     } = req.body;
 
     if (orderItems && orderItems.length === 0) {
       res.status(400);
       throw new Error('No order items');
-    } else {
-      const order = new Order({
-        orderItems,
-        user: req.user._id,
-        shippingAddress,
-        paymentMethod,
-        itemsPrice,
-        taxPrice,
-        shippingPrice,
-        totalPrice,
-        discount,
-      });
-
-      const createdOrder = await order.save();
-      res.status(201).json(createdOrder);
     }
+
+    // Server-side price calculation based on product name (since frontend uses static IDs)
+    const itemsFromDB = await Product.find({
+      name: { $in: orderItems.map((x) => x.name) },
+    });
+
+    const dbOrderItems = orderItems.map((itemFromClient) => {
+      const matchingItemFromDB = itemsFromDB.find(
+        (itemFromDB) => itemFromDB.name === itemFromClient.name
+      );
+      
+      if (!matchingItemFromDB) {
+         res.status(404);
+         throw new Error(`Product not found in database: ${itemFromClient.name}`);
+      }
+
+      return {
+        ...itemFromClient,
+        product: matchingItemFromDB._id, // Assign actual MongoDB _id
+        price: matchingItemFromDB.price,
+        _id: undefined,
+      };
+    });
+
+    const itemsPrice = Number(
+      dbOrderItems.reduce((acc, item) => acc + item.price * item.qty, 0).toFixed(2)
+    );
+    const shippingPrice = itemsPrice > 1000 ? 0 : 50; 
+    const taxPrice = Number((0.05 * itemsPrice).toFixed(2));
+    const totalPrice = Number((itemsPrice + shippingPrice + taxPrice).toFixed(2));
+
+    const order = new Order({
+      orderItems: dbOrderItems,
+      user: req.user._id,
+      shippingAddress,
+      paymentMethod,
+      itemsPrice,
+      taxPrice,
+      shippingPrice,
+      totalPrice,
+      discount: 0,
+    });
+
+    const createdOrder = await order.save();
+
+    // Decrement stock
+    for (const item of order.orderItems) {
+      const product = await Product.findById(item.product);
+      product.countInStock -= item.qty;
+      await product.save();
+    }
+
+    // Clear user cart after order
+    await Cart.findOneAndUpdate(
+      { user: req.user._id },
+      { items: [] }
+    );
+
+    res.status(201).json(createdOrder);
   } catch (error) {
     next(error);
   }
