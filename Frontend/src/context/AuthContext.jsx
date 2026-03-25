@@ -26,6 +26,9 @@ export const AuthProvider = ({ children }) => {
           const data = await res.json();
           setUser(data);
           localStorage.setItem('mithilaUser', JSON.stringify(data));
+          
+          // Fetch the cart reliably from the backend for the validated session
+          useCartStore.getState().fetchCart();
         } else {
           setUser(null);
           localStorage.removeItem('mithilaUser');
@@ -52,9 +55,12 @@ export const AuthProvider = ({ children }) => {
       if (!res.ok) throw new Error(data.message || 'Login failed');
       
       setUser(data);
-      setToken(data.token);
       localStorage.setItem('mithilaUser', JSON.stringify(data));
       // token relies on HTTPOnly cookie securely processed by browser automatically
+      
+      // Sync the cart upon login
+      await useCartStore.getState().syncWithBackend();
+      
       return { success: true };
     } catch (error) {
       return { success: false, error: error.message };
@@ -92,13 +98,29 @@ export const AuthProvider = ({ children }) => {
       if (!res.ok) throw new Error(data.message || 'OTP verification failed');
       
       setUser(data);
-      setToken(data.token);
       localStorage.setItem('mithilaUser', JSON.stringify(data));
       // token is securely in cookie
       return { success: true };
     } catch (error) {
       return { success: false, error: error.message };
     }
+  };
+
+  const refreshUser = async () => {
+    try {
+      const res = await fetch('http://localhost:5000/api/auth/profile', {
+        credentials: 'include'
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setUser(data);
+        localStorage.setItem('mithilaUser', JSON.stringify(data));
+        return data;
+      }
+    } catch (error) {
+      console.error('Refresh user error:', error);
+    }
+    return null;
   };
 
   const logout = async () => {
@@ -131,7 +153,6 @@ export const AuthProvider = ({ children }) => {
       if (!res.ok) throw new Error(data.message || 'Update failed');
       
       setUser(data);
-      setToken(data.token);
       localStorage.setItem('mithilaUser', JSON.stringify(data));
       return { success: true };
     } catch (error) {
@@ -140,7 +161,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, loading, login, register, verifyOtp, logout, updateProfile }}>
+    <AuthContext.Provider value={{ user, token, loading, login, register, verifyOtp, logout, updateProfile, refreshUser, setUser }}>
       {!loading && children}
     </AuthContext.Provider>
   );

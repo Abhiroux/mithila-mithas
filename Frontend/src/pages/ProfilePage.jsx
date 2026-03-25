@@ -1,14 +1,16 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import AddressForm from '../components/Checkout/AddressForm';
 import './ProfilePage.css';
 
 export default function ProfilePage() {
-  const { user, updateProfile, logout } = useAuth();
+  const { user, updateProfile, logout, refreshUser } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
-  const [activeTab, setActiveTab] = useState('profile'); // 'profile', 'addresses'
+  const tabFromUrl = new URLSearchParams(location.search).get('tab');
+  const [activeTab, setActiveTab] = useState(tabFromUrl === 'addresses' ? 'addresses' : 'profile'); // 'profile', 'addresses'
   const [showNewForm, setShowNewForm] = useState(false);
   
   // Profile Form State
@@ -23,6 +25,25 @@ export default function ProfilePage() {
 
   // Address State
   const [addresses, setAddresses] = useState([]);
+  const [addressLoading, setAddressLoading] = useState(false);
+
+  // Fetch addresses directly from API for reliability
+  const fetchAddresses = async () => {
+    setAddressLoading(true);
+    try {
+      const res = await fetch('http://localhost:5000/api/auth/addresses', {
+        credentials: 'include'
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setAddresses(data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch addresses:', err);
+    } finally {
+      setAddressLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (!user) {
@@ -31,9 +52,7 @@ export default function ProfilePage() {
       setName(user.name || '');
       setEmail(user.email || '');
       setPhone(user.phone || '');
-      if (user.addresses) {
-        setAddresses(user.addresses);
-      }
+      fetchAddresses();
     }
   }, [user, navigate]);
 
@@ -72,8 +91,6 @@ export default function ProfilePage() {
 
   const handleAddressSubmit = async (newAddress) => {
     try {
-      // In the future this can be expanded to update an individual address
-      // For now we add a new one via API
       const res = await fetch('http://localhost:5000/api/auth/addresses', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -84,10 +101,11 @@ export default function ProfilePage() {
       const updatedAddresses = await res.json();
       if (!res.ok) throw new Error(updatedAddresses.message || 'Failed to add address');
       
+      // Update local address state with the fresh list from server
       setAddresses(updatedAddresses);
-      // We might want to refresh user context entirely, but setting local state is OK for now
-      // Or call a function from AuthContext like `fetchUser()` if it existed
-      window.location.reload(); // Simple solution to fetch fresh user object across context
+      setShowNewForm(false);
+      // Also refresh user in AuthContext so other pages (like Checkout) get fresh addresses
+      refreshUser();
     } catch (err) {
       alert(err.message);
     }
@@ -229,7 +247,9 @@ export default function ProfilePage() {
                 </div>
                 
                 <div className="profile-addresses-wrapper">
-                  {!showNewForm && addresses.length === 0 ? (
+                  {addressLoading ? (
+                    <p style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>Loading addresses...</p>
+                  ) : !showNewForm && addresses.length === 0 ? (
                       <div className="empty-state" style={{ textAlign: 'center', padding: '40px', border: '1px dashed var(--border-color)', borderRadius: '8px' }}>
                          <span className="material-icons-outlined" style={{ fontSize: '48px', color: 'var(--gray-300)' }}>location_off</span>
                          <h3 style={{ margin: '16px 0 8px' }}>No address saved</h3>

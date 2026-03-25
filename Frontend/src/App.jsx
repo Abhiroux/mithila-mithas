@@ -14,6 +14,8 @@ import RegisterPage from './pages/RegisterPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ProfilePage from './pages/ProfilePage';
 import OrderHistoryPage from './pages/OrderHistoryPage';
+import OrderSuccessPage from './pages/OrderSuccessPage';
+import OrderFailurePage from './pages/OrderFailurePage';
 import ScrollToTop from './components/ScrollToTop';
 
 function App() {
@@ -35,6 +37,8 @@ function App() {
             <Route path="/register" element={<RegisterPage />} />
             <Route path="/profile" element={<ProfilePage />} />
             <Route path="/orders" element={<OrderHistoryPage />} />
+            <Route path="/order-success" element={<OrderSuccessPage />} />
+            <Route path="/order-failure" element={<OrderFailurePage />} />
           </Routes>
           <Footer />
         </>

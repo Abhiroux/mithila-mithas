@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import useCartStore from '../store/useCartStore';
 import AddressForm from '../components/Checkout/AddressForm';
@@ -20,7 +20,7 @@ const loadScript = (src) => {
 export default function CheckoutPage() {
   const { cartItems, getTotals } = useCartStore();
   const { cartCount, subtotal, deliveryFee, gst, total } = getTotals();
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const navigate = useNavigate();
 
   const [step, setStep] = useState(1);
@@ -32,8 +32,42 @@ export default function CheckoutPage() {
   const [editAddressData, setEditAddressData] = useState(null);
   const [selectedSavedId, setSelectedSavedId] = useState(null);
 
-  // Step 1: Address Selection
-  const handleAddressSubmit = (address) => {
+  useEffect(() => {
+    // If we have a user, forcefully sync their data (like addresses) exactly once upon reaching checkout
+    if (user && refreshUser) {
+       refreshUser();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Step 1: Save Address to Backend (if new/edited) & Proceed
+  const saveAddressToBackend = async (newAddress) => {
+    try {
+      const res = await fetch('http://localhost:5000/api/auth/addresses', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(newAddress)
+      });
+      
+      const updatedAddresses = await res.json();
+      if (!res.ok) throw new Error(updatedAddresses.message || 'Failed to save address');
+      
+      // Select the last added/updated address from the response
+      const serverAddr = updatedAddresses.find(a => 
+        (newAddress._id && a._id === newAddress._id) || 
+        (!newAddress._id && a.street === newAddress.street && a.city === newAddress.city)
+      ) || updatedAddresses[updatedAddresses.length - 1];
+
+      setSelectedAddress(serverAddr);
+      await refreshUser(); // sync context
+      setStep(2);
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
+  const handleSelectSavedAddress = (address) => {
     setSelectedAddress(address);
     setStep(2);
   };
@@ -116,13 +150,12 @@ export default function CheckoutPage() {
             });
 
             if (verifyRes.ok) {
-              useCartStore.getState().clearCart();
-              navigate('/orders'); 
+              navigate(`/order-success?orderId=${orderData._id}`); 
             } else {
-              setErrorMsg('Payment verification failed');
+              navigate(`/order-failure?orderId=${orderData._id}&error=Payment+verification+failed`);
             }
           } catch (err) {
-            setErrorMsg('Payment verification error: ' + err.message);
+            navigate(`/order-failure?orderId=${orderData._id}&error=${encodeURIComponent(err.message)}`);
           }
         },
         prefill: {
@@ -145,12 +178,19 @@ export default function CheckoutPage() {
     }
   };
 
+  useEffect(() => {
+    // Only kick them back to cart if it's empty AND they haven't just placed an order 
+    // (though navigate prevents render anyway once called)
+    if (cartItems.length === 0 && step === 1 && !isProcessing) {
+        navigate('/cart');
+    }
+  }, [cartItems.length, navigate, step, isProcessing]);
+
   if(!user) {
      return <div className="checkout-page container"><h2>Please <Link to="/login?redirect=/checkout">login</Link> to checkout</h2></div>
   }
 
-  if (cartItems.length === 0) {
-      navigate('/cart');
+  if (cartItems.length === 0 && step === 1) {
       return null;
   }
 
@@ -193,7 +233,7 @@ export default function CheckoutPage() {
                     ))}
                     <button className="btn btn-primary mt-2" onClick={() => {
                         const addrToSubmit = user.addresses.find(a => a._id === selectedSavedId) || user.addresses.find(a => a.isDefault) || user.addresses[0];
-                        if(addrToSubmit) handleAddressSubmit(addrToSubmit);
+                        if(addrToSubmit) handleSelectSavedAddress(addrToSubmit);
                     }}>Deliver Here</button>
                     <button className="btn btn-outline" style={{ marginTop: '16px' }} onClick={() => setShowNewForm(true)}>+ Add New Address</button>
                   </div>
@@ -217,7 +257,7 @@ export default function CheckoutPage() {
                     <AddressForm 
                         initialData={editAddressData}
                         onAddressSubmit={(addr) => { 
-                           handleAddressSubmit(addr); 
+                           saveAddressToBackend({ ...addr, _id: editAddressData?._id }); 
                            setShowNewForm(false); 
                            setEditAddressData(null);
                         }} 

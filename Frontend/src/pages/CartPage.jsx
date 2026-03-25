@@ -81,8 +81,10 @@ export default function CartPage() {
           <div className="cart-page__layout">
             {/* Cart Items */}
             <div className="cart-items">
-              {cartItems.map((item) => (
-                <div key={item.id} className="cart-item animate-fade-in" id={`cart-item-${item.id}`}>
+              {cartItems.map((item) => {
+                const itemKey = item.product || item._id || item.name;
+                return (
+                <div key={itemKey} className="cart-item animate-fade-in" id={`cart-item-${itemKey}`}>
                   <img src={item.image} alt={item.name} className="cart-item__image" />
                   <div className="cart-item__info">
                     <h3 className="cart-item__name">{item.name}</h3>
@@ -92,16 +94,16 @@ export default function CartPage() {
                   <div className="cart-item__quantity">
                     <button
                       className="cart-item__qty-btn"
-                      onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                      id={`qty-dec-${item.id}`}
+                      onClick={() => updateQuantity(itemKey, item.quantity - 1)}
+                      id={`qty-dec-${itemKey}`}
                     >
                       <span className="material-icons-outlined">remove</span>
                     </button>
                     <span className="cart-item__qty-value">{item.quantity}</span>
                     <button
                       className="cart-item__qty-btn"
-                      onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                      id={`qty-inc-${item.id}`}
+                      onClick={() => updateQuantity(itemKey, item.quantity + 1)}
+                      id={`qty-inc-${itemKey}`}
                     >
                       <span className="material-icons-outlined">add</span>
                     </button>
@@ -109,14 +111,15 @@ export default function CartPage() {
                   <p className="cart-item__total">₹{item.price * item.quantity}</p>
                   <button
                     className="cart-item__remove"
-                    onClick={() => removeFromCart(item.id)}
+                    onClick={() => removeFromCart(itemKey)}
                     aria-label="Remove item"
-                    id={`remove-${item.id}`}
+                    id={`remove-${itemKey}`}
                   >
                     <span className="material-icons-outlined">delete_outline</span>
                   </button>
                 </div>
-              ))}
+                );
+              })}
 
               {/* Promo Code */}
               <div className="cart-promo">

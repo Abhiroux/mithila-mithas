@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import MapModal from './MapModal';
 import '../../pages/CheckoutPage.css';
 
@@ -13,6 +13,13 @@ export default function AddressForm({ onAddressSubmit, initialData }) {
     phone: '',
     isDefault: false
   });
+
+  // Sync form data when initialData prop changes (e.g. switching address to edit)
+  useEffect(() => {
+    if (initialData) {
+      setFormData(initialData);
+    }
+  }, [initialData]);
 
   const [errors, setErrors] = useState({});
   const [isMapOpen, setIsMapOpen] = useState(false);

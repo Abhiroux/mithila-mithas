@@ -60,7 +60,7 @@ export default function OrderHistoryPage() {
               <span className="material-icons-outlined">person</span>
               My Profile
             </Link>
-            <Link to="/profile">
+            <Link to="/profile?tab=addresses">
               <span className="material-icons-outlined">home</span>
               My Addresses
             </Link>

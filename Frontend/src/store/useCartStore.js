@@ -36,35 +36,71 @@ const useCartStore = create(
         } else {
           set({ cartItems: [...cartItems, { ...item, quantity: 1, product: productId }] });
         }
+
+        try {
+          await axios.post('http://localhost:5000/api/cart/add', { productId, name: item.name, quantity: 1 }, { withCredentials: true });
+        } catch (error) {
+          // ignore error if not logged in
+        }
       },
 
-      removeFromCart: (productIdOrName) => {
+      removeFromCart: async (productIdOrName) => {
         // Find by name first or by ID as fallback
         const { cartItems } = get();
+        const item = cartItems.find(i => 
+            i.name === productIdOrName || 
+            i.product === productIdOrName || 
+            i._id === productIdOrName || 
+            i.id === productIdOrName
+        );
+        const productIdToDelete = item ? (item.product || item._id || item.id) : productIdOrName;
+        // In the URL payload we must dynamically encode the param to allow names or IDs
+        const paramId = item ? (item.name || productIdToDelete) : productIdToDelete;
+
         set({
-          cartItems: cartItems.filter(item => 
-            item.name !== productIdOrName && 
-            item.product !== productIdOrName && 
-            item._id !== productIdOrName && 
-            item.id !== productIdOrName
-          )
+           cartItems: cartItems.filter(i => 
+             i.name !== productIdOrName && 
+             i.product !== productIdOrName && 
+             i._id !== productIdOrName && 
+             i.id !== productIdOrName
+           )
         });
+
+        try {
+          await axios.delete(`http://localhost:5000/api/cart/remove/${encodeURIComponent(paramId)}`, { withCredentials: true });
+        } catch (error) {
+          // ignore error if not logged in
+        }
       },
 
-      updateQuantity: (productIdOrName, quantity) => {
+      updateQuantity: async (productIdOrName, quantity) => {
         const { cartItems } = get();
         if (quantity <= 0) {
           get().removeFromCart(productIdOrName);
           return;
         }
         
+        const item = cartItems.find(i => 
+            i.name === productIdOrName || 
+            i.product === productIdOrName || 
+            i._id === productIdOrName || 
+            i.id === productIdOrName
+        );
+        const productIdToUpdate = item ? (item.product || item._id || item.id) : productIdOrName;
+
         set({
-          cartItems: cartItems.map(item => 
-            (item.name === productIdOrName || item.product === productIdOrName || item._id === productIdOrName || item.id === productIdOrName)
-              ? { ...item, quantity } 
-              : item
+          cartItems: cartItems.map(i => 
+            (i.name === productIdOrName || i.product === productIdOrName || i._id === productIdOrName || i.id === productIdOrName)
+              ? { ...i, quantity } 
+              : i
           )
         });
+
+        try {
+          await axios.put('http://localhost:5000/api/cart/update', { productId: productIdToUpdate, name: item?.name, quantity }, { withCredentials: true });
+        } catch (error) {
+          // ignore error if not logged in
+        }
       },
 
       clearCart: () => set({ cartItems: [] }),
@@ -72,7 +108,6 @@ const useCartStore = create(
       // Sync backend cart with local storage on login
       syncWithBackend: async () => {
         try {
-          // You would call this after successful login.
           const { cartItems } = get();
           
           const localCartItems = cartItems.map(item => ({
@@ -81,14 +116,14 @@ const useCartStore = create(
              quantity: item.quantity
           }));
 
-          const response = await axios.post('/api/cart/merge', { localCartItems }, { withCredentials: true });
+          const response = await axios.post('http://localhost:5000/api/cart/merge', { localCartItems }, { withCredentials: true });
           
           if (response.data && response.data.items) {
              const mergedItems = response.data.items.map(item => ({
                 ...item.product,
                 quantity: item.quantity,
-                product: item.product._id,
-                name: item.product.name
+                product: item.product?._id || item.product,
+                name: item.product?.name || item.name
              }));
              set({ cartItems: mergedItems });
           }
@@ -99,13 +134,13 @@ const useCartStore = create(
       
       fetchCart: async () => {
         try {
-           const response = await axios.get('/api/cart', { withCredentials: true });
+           const response = await axios.get('http://localhost:5000/api/cart', { withCredentials: true });
            if (response.data && response.data.items) {
              const dbItems = response.data.items.map(item => ({
                 ...item.product,
                 quantity: item.quantity,
-                product: item.product._id,
-                name: item.product.name // ensuring name is available
+                product: item.product?._id || item.product,
+                name: item.product?.name || 'Item'
              }));
              set({ cartItems: dbItems });
            }
