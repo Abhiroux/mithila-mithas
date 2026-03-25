@@ -167,6 +167,8 @@ export const loginUser = async (req, res, next) => {
         name: user.name,
         email: user.email,
         role: user.role,
+        addresses: user.addresses,
+        phone: user.phone || ''
       });
     } else {
       user.loginAttempts += 1;
@@ -227,13 +229,21 @@ export const updateUserProfile = async (req, res, next) => {
 
       const updatedUser = await user.save();
 
+      // Refresh the auth cookie so the token stays current
+      res.cookie('token', generateToken(updatedUser._id), {
+        httpOnly: true,
+        secure: process.env.NODE_ENV !== 'development',
+        sameSite: 'strict',
+        maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+      });
+
       res.json({
         _id: updatedUser._id,
         name: updatedUser.name,
         email: updatedUser.email,
         phone: updatedUser.phone,
         role: updatedUser.role,
-        token: generateToken(updatedUser._id),
+        addresses: updatedUser.addresses,
       });
     } else {
       res.status(404);

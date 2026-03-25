@@ -66,8 +66,10 @@ export const addOrderItems = async (req, res, next) => {
     // Decrement stock
     for (const item of order.orderItems) {
       const product = await Product.findById(item.product);
-      product.countInStock -= item.qty;
-      await product.save();
+      if (product) {
+        product.countInStock = Math.max(0, product.countInStock - item.qty);
+        await product.save();
+      }
     }
 
     // Clear user cart after order

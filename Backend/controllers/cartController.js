@@ -26,12 +26,19 @@ export const getCart = async (req, res, next) => {
 // @access  Private
 export const addToCart = async (req, res, next) => {
   try {
-    const { productId, quantity } = req.body;
+    const { productId, name, quantity } = req.body;
 
-    const product = await Product.findById(productId);
+    let product;
+    if (name) {
+      product = await Product.findOne({ name });
+    }
+    if (!product) {
+      product = await Product.findById(productId).catch(() => null);
+    }
+
     if (!product) {
       res.status(404);
-      throw new Error('Product not found');
+      throw new Error('Product not found in database');
     }
 
     let cart = await Cart.findOne({ user: req.user._id });
@@ -41,27 +48,17 @@ export const addToCart = async (req, res, next) => {
     }
 
     const itemIndex = cart.items.findIndex(
-      (item) => item.product.toString() === productId
+      (item) => item.product.toString() === product._id.toString()
     );
 
     if (itemIndex > -1) {
       // Product exists in the cart, updating the quantity
       let item = cart.items[itemIndex];
       item.quantity += Number(quantity);
-      // Optional: Check stock constraint here as well
-      if(item.quantity > product.countInStock) {
-        res.status(400);
-        throw new Error(`Only ${product.countInStock} items in stock`);
-      }
       cart.items[itemIndex] = item;
     } else {
       // Product does not exist in cart, add new item
-      // Check stock
-      if(quantity > product.countInStock) {
-        res.status(400);
-        throw new Error(`Only ${product.countInStock} items in stock`);
-      }
-      cart.items.push({ product: productId, quantity: Number(quantity), price: product.price });
+      cart.items.push({ product: product._id, quantity: Number(quantity), price: product.price });
     }
 
     await cart.save();
@@ -83,7 +80,20 @@ export const addToCart = async (req, res, next) => {
 // @access  Private
 export const updateCartItem = async (req, res, next) => {
   try {
-    const { productId, quantity } = req.body;
+    const { productId, name, quantity } = req.body;
+
+    let product;
+    if (name) {
+      product = await Product.findOne({ name });
+    }
+    if (!product) {
+      product = await Product.findById(productId).catch(() => null);
+    }
+
+    if (!product) {
+      res.status(404);
+      throw new Error('Product not found in database');
+    }
 
     const cart = await Cart.findOne({ user: req.user._id });
     if (!cart) {
@@ -92,16 +102,10 @@ export const updateCartItem = async (req, res, next) => {
     }
 
     const itemIndex = cart.items.findIndex(
-      (item) => item.product.toString() === productId
+      (item) => item.product.toString() === product._id.toString()
     );
 
     if (itemIndex > -1) {
-      const product = await Product.findById(productId);
-      if(quantity > product.countInStock) {
-         res.status(400);
-         throw new Error(`Only ${product.countInStock} items in stock`);
-      }
-
       let item = cart.items[itemIndex];
       item.quantity = Number(quantity);
       cart.items[itemIndex] = item;
@@ -128,6 +132,12 @@ export const updateCartItem = async (req, res, next) => {
 export const removeCartItem = async (req, res, next) => {
   try {
     const productId = req.params.productId;
+    // We allow removing by passing either the mongo ID or the static name through params
+
+    let product = await Product.findOne({ name: productId }).catch(() => null);
+    if (!product) {
+      product = await Product.findById(productId).catch(() => null);
+    }
 
     const cart = await Cart.findOne({ user: req.user._id });
     if (!cart) {
@@ -136,7 +146,12 @@ export const removeCartItem = async (req, res, next) => {
     }
 
     cart.items = cart.items.filter(
-      (item) => item.product.toString() !== productId
+      (item) => {
+        if (product) {
+           return item.product.toString() !== product._id.toString();
+        }
+        return item.product.toString() !== productId;
+      }
     );
 
     await cart.save();
@@ -160,7 +175,15 @@ export const mergeCart = async (req, res, next) => {
         const { localCartItems } = req.body; // Expecting array of { product (id), quantity }
 
         if (!localCartItems || localCartItems.length === 0) {
-            return res.status(200).json({ message: 'No items to merge' });
+            let existingCart = await Cart.findOne({ user: req.user._id }).populate({
+                path: 'items.product',
+                select: 'name price image brand category countInStock',
+            });
+            if (!existingCart) {
+                existingCart = new Cart({ user: req.user._id, items: [] });
+                await existingCart.save();
+            }
+            return res.status(200).json(existingCart);
         }
 
         let cart = await Cart.findOne({ user: req.user._id });
@@ -179,20 +202,17 @@ export const mergeCart = async (req, res, next) => {
             if (!product) continue; // Skip invalid products
 
             const itemIndex = cart.items.findIndex(
-                (item) => item.product.toString() === localItem.product
+                (item) => item.product.toString() === product._id.toString()
             );
 
             if (itemIndex > -1) {
-                // If exists, you might want to choose to keep max quantity, or add them. Let's add them but respect stock.
                 let item = cart.items[itemIndex];
-                const newQty = item.quantity + Number(localItem.quantity);
-                item.quantity = Math.min(newQty, product.countInStock);
+                item.quantity = item.quantity + Number(localItem.quantity);
                 cart.items[itemIndex] = item;
             } else {
-                const qty = Math.min(Number(localItem.quantity), product.countInStock);
                 cart.items.push({ 
-                    product: localItem.product, 
-                    quantity: qty, 
+                    product: product._id, 
+                    quantity: Number(localItem.quantity), 
                     price: product.price 
                 });
             }
