@@ -1,0 +1,157 @@
+.order-details-page {
+  padding: calc(var(--nav-height, 80px) + 40px) 0 40px 0;
+}
+
+.order-details-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: var(--white);
+  padding: 24px;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+  margin-bottom: 32px;
+}
+
+.order-timeline-card {
+  background-color: var(--white);
+  padding: 40px 32px;
+  border-radius: 12px;
+  box-shadow: var(--shadow-md);
+  margin-bottom: 32px;
+  border: 1px solid var(--gray-100);
+}
+
+.timeline-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  position: relative;
+  padding: 20px 0;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+/* Background line */
+.timeline-container::before {
+  content: '';
+  position: absolute;
+  top: 44px; /* Center of 48px icon + 20px padding */
+  left: 0;
+  width: 100%;
+  height: 4px;
+  background-color: var(--gray-200);
+  z-index: 1;
+}
+
+.timeline-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+  z-index: 2;
+  flex: 1;
+}
+
+.timeline-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background-color: var(--white);
+  color: var(--gray-400);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border: 3px solid var(--gray-200);
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  margin-bottom: 12px;
+}
+
+.timeline-step.completed .timeline-icon {
+  background-color: var(--success);
+  color: var(--white);
+  border-color: var(--success);
+  transform: scale(1.1);
+}
+
+.timeline-step.current .timeline-icon {
+  background-color: var(--maroon);
+  color: var(--white);
+  border-color: var(--maroon);
+  box-shadow: 0 0 0 5px rgba(139, 26, 58, 0.15);
+  transform: scale(1.15);
+}
+
+.timeline-content {
+  text-align: center;
+}
+
+.timeline-content h4 {
+  margin: 0;
+  font-size: 0.85rem;
+  letter-spacing: 0.5px;
+  color: var(--gray-400);
+  text-transform: uppercase;
+}
+
+.timeline-step.completed h4, 
+.timeline-step.current h4 {
+  color: var(--charcoal);
+  font-weight: 700;
+}
+
+.timeline-date {
+  font-size: 0.75rem;
+  color: var(--gray-500);
+  margin-top: 6px;
+  white-space: nowrap;
+}
+
+/* Line Coloring Logic - We use data attributes or specific classes if needed, 
+   but since the dots are spaced, a single line behind them works if colored by JS or a overlay.
+   For simplicity, we'll use a gradient or just leave the background line as is.
+*/
+
+.order-details-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 24px;
+}
+
+.order-products-card, .order-info-card {
+  background-color: var(--white);
+  padding: 24px;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+}
+
+@media (max-width: 768px) {
+  .order-details-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .timeline-container {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .timeline-step {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    width: 100%;
+    text-align: left;
+    margin-bottom: 24px;
+  }
+  
+  .timeline-icon {
+    margin: 0;
+  }
+  
+  .timeline-line {
+    top: 48px;
+    left: 24px;
+    width: 4px;
+    height: 100%;
+  }
+}

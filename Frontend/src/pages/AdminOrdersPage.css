@@ -1,0 +1,71 @@
+.admin-page {
+  padding: calc(var(--nav-height, 80px) + 40px) 0 40px 0;
+}
+
+.admin-orders-container {
+  background-color: transparent;
+}
+
+.table-responsive {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.admin-filters button {
+  transition: all 0.2s ease;
+}
+
+.admin-filters button.btn-outline {
+  background-color: transparent;
+  color: var(--text-muted);
+  border: 1px solid var(--border-color);
+}
+
+.admin-filters button.btn-outline:hover {
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+}
+
+.admin-filters button.btn-primary {
+  background-color: var(--primary-color);
+  color: var(--white);
+  border: 1px solid var(--primary-color);
+}
+
+table {
+  border-spacing: 0;
+}
+
+th {
+  text-transform: uppercase;
+  font-size: 0.8rem;
+  letter-spacing: 1px;
+  color: var(--gray-600);
+}
+
+td {
+  vertical-align: middle;
+  font-size: 0.95rem;
+  color: var(--text-dark);
+}
+
+tr:hover td {
+  background-color: rgba(0, 0, 0, 0.02);
+}
+
+.badge {
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: bold;
+}
+
+.badge-success {
+  background-color: #E8F5E9;
+  color: #2E7D32;
+}
+
+.badge-warning {
+  background-color: #FFF3E0;
+  color: #E65100;
+}
