@@ -140,6 +140,13 @@ export const verifyPayment = async (req, res, next) => {
           status: 'success',
         };
 
+        order.orderStatus = 'CONFIRMED';
+        order.timeline.push({
+          status: 'CONFIRMED',
+          date: Date.now(),
+          description: 'Payment verified successfully. Order confirmed.'
+        });
+
         await order.save();
 
         // Send confirmation email (non-blocking)
@@ -217,6 +224,12 @@ export const webhookHandler = async (req, res) => {
             razorpayPaymentId: payment.id,
             status: 'captured',
           };
+          order.orderStatus = 'CONFIRMED';
+          order.timeline.push({
+            status: 'CONFIRMED',
+            date: Date.now(),
+            description: 'Payment successfully captured via webhook. Order confirmed.'
+          });
           await order.save();
           sendOrderConfirmationEmail(order);
         }

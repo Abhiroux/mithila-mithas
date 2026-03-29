@@ -81,6 +81,9 @@ export default function Navbar() {
                 </div>
                 <Link to="/profile">My Profile</Link>
                 <Link to="/orders">Order History</Link>
+                {user.role === 'admin' && (
+                   <Link to="/admin/orders" style={{ color: 'var(--primary-dark)', fontWeight: '600' }}>Admin Dashboard</Link>
+                )}
                 <button onClick={logout}>Logout</button>
               </div>
             </div>
